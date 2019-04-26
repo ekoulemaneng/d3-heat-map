@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <title>D3 Heat Map</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script src="https://d3js.org/d3.v4.min.js"></script>
+        <style>
+        /*---------------------------------------Reset CSS-----------------------------------------*/
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed, 
+figure, figcaption, footer, header, hgroup, 
+menu, nav, output, ruby, section, summary,
+time, mark, audio, video {
+margin: 0;
+padding: 0;
+border: 0;
+font-size: 100%;
+font: inherit;
+vertical-align: baseline;
+}
+/* HTML5 display-role reset for older browsers */
+article, aside, details, figcaption, figure, 
+footer, header, hgroup, menu, nav, section {
+display: block;
+}
+body {
+line-height: 1;
+}
+ol, ul {
+list-style: none;
+}
+blockquote, q {
+quotes: none;
+}
+blockquote:before, blockquote:after,
+q:before, q:after {
+content: '';
+content: none;
+}
+table {
+border-collapse: collapse;
+border-spacing: 0;
+}
+/*---------------------------------------------------------------*/
+
+svg {
+    display: block;
+    margin: 1rem auto auto;
+}
+
+#title {
+    font-size: 1.25rem;
+    font-weight: bold;
+}
+
+#description {
+    font-size: 1.25rem;
+}
+
+.tick {
+    font-size: .85rem;
+}
+
+.cell:hover {
+    stroke: black;
+    stroke-width: 1;
+}
+#tooltip {
+    position: absolute;
+    pointer-events: all;
+    background: black;
+    color: white;
+    width: 150px;
+    padding: 3px;
+    line-height: 1.25rem;
+    border-radius: 5px;
+    opacity: .75;
+}
+        </style>
+    </head>
+    <body>
+        <script>
+        let url = 'https://raw.githubusercontent.com/freeCodeCamp/ProjectReferenceData/master/global-temperature.json';
+let width = 1500, height = 600 ;
+let margin = {top: 55, right: 100, bottom: 150, left: 125};
+
+d3.json(url, function(data) {
+    let dataset = data["monthlyVariance"];
+    let months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    let colors = ['#ffffff', '#f5f5f5', '#eaeaea', '#e0e0e0', '#bdbdbd', '#818181', '#5a4b75', '#660080', '#612980', '#450081', '#2e0084', '#3b00b6', '#5b00ff', '#4838ff', '#07afff', '#00ffff', '#00ffc7', '#00ea8c', '#00b965', '#00bd2b', '#00df29', '#00ff00', '#b4ff00', '#f3ff00', '#e4ff74', '#dfd95b', '#dab839', '#ffb300', '#ff4200', '#ff0000', '#cf0000', '#b30000', '#980000', '#7c0000'];
+    
+    let svgContainer = d3.select('body').append('svg').attr('width', width).attr('height', height);
+
+    let xMin = d3.min(dataset, (d) => new Date(d['year'], d['month']));
+    let xMax = d3.max(dataset, (d) => new Date(d['year'], d['month']));
+
+    let xScale = d3.scaleTime().domain([xMin, xMax]).range([margin.left, width - margin.right]);
+    let yScale = d3.scaleBand().domain(months).range([height - margin.bottom, margin.top]);
+
+    let xAxis = d3.axisBottom(xScale).tickFormat(d3.timeFormat('%Y')).tickArguments([d3.timeYear.every(10)]);
+    let yAxis = d3.axisLeft(yScale);
+
+    let varianceMin = d3.min(dataset, (d) => d['variance']);
+    let varianceMax = d3.max(dataset, (d) => d['variance']);
+    let e = (varianceMax - varianceMin) / (colors.length - 1);
+
+    console.log(data['baseTemperature'] + varianceMin - e/2);
+    console.log(data['baseTemperature'] + varianceMax + e/2);
+    console.log(e);
+    
+    let colorScale = d3.scaleLinear().domain([data['baseTemperature'] + varianceMin - e/2, data['baseTemperature'] + varianceMax + e/2]).range([margin.left, width - margin.right - 100]);
+    let colorAxis = d3.axisBottom(colorScale).tickValues(function() {
+        let array = [];
+        for (let i = 1; i < 34; i++) array.push(data['baseTemperature'] + varianceMin - e/2 + i * e);
+        return array;
+    }()).tickFormat(d3.format('.1f'));
+
+    let selectColor = function(temperature) {
+        let tempMin = data['baseTemperature'] + varianceMin - e/2;
+        let tempMax = data['baseTemperature'] + varianceMax + e/2;
+        let i = 0;
+        let Temp = tempMin;
+        for (i = 1; Temp <= tempMax; i++) {
+            Temp += e;
+            if (Temp >= temperature) break;
+        }
+        return colors[i - 1];
+    } ;
+
+    let w = (width - (margin.right + margin.left))/dataset.length;
+
+    let tooltip = d3.select('body').append('div').attr('id', 'tooltip').style('visibility', 'hidden');
+
+    let legend = svgContainer.append('g').attr('id', 'legend').attr('transform', 'translate(0, ' + (height - margin.bottom + 110) + ')').call(colorAxis);
+
+    svgContainer.append('g').attr('id', 'x-axis').attr('transform', 'translate(0, ' + (height - margin.bottom) + ')').call(xAxis);
+    svgContainer.append('g').attr('id', 'y-axis').attr('transform', 'translate(' + (margin.left) + ', 0)').call(yAxis);
+
+    svgContainer.append('text').attr('id', 'title').attr('x', 450).attr('y', 20).text('Monthy Global Land-Surface Temperature');
+    svgContainer.append('text').attr('id', 'description').attr('x', 450).attr('y', 45).text((d) => 'Period: from ' + xMin.getFullYear() + ' to ' + xMax.getFullYear() + ' | Temperature base: ' + data["baseTemperature"] + '°c');
+
+    svgContainer.append('text').attr('x', -275).attr('y', 35).style('transform', 'rotate(-90deg)').text('Months');
+    svgContainer.append('text').attr('x', 750).attr('y', 490).text('Years');
+
+    svgContainer.selectAll('rect')
+    .data(dataset).enter()
+    .append('rect')
+    .attr('class', 'cell')
+    .attr('data-year', (d) => d['year']).attr('data-month', (d) => d['month'] - 1).attr('data-temp', (d) => d['variance'])
+    .attr('width', w * 12).attr('height', yScale.bandwidth())
+    .attr('x', (d) => xScale(new Date(d['year'], 0))).attr('y', (d) => yScale(months[d['month'] - 1]))
+    .attr('fill', (d) => selectColor(data['baseTemperature'] + d['variance'])).on('mouseover', (d) => {
+        let X = xScale(new Date(d['year'], 0));
+        let Y = yScale(months[d['month'] - 1]);
+        tooltip.attr('data-year', d['year']).style('top', (Y - 60) + 'px').style('left', (X - 55) + 'px' ).style('visibility', 'visible').html(
+                months[d['month'] - 1] + ' ' + d['year'] + '<br>Temperature: ' + (Math.round((data['baseTemperature'] + d['variance']) * 1000) / 1000) + '°c<br>Variance: ' + d['variance'] + '°c'
+            );
+    }).on('mouseout', (d) => { tooltip.style('visibility', 'hidden'); });
+
+    legend.selectAll('rect').data(colors).enter().append('rect').attr('height', (width - (margin.left + margin.right + 100)) / 34).attr('width', (width - (margin.left + margin.right + 100)) / 34).attr('x', (d, i) => margin.left + (width - (margin.left + margin.right + 100)) * i / 34).attr('y', - (width - (margin.left + margin.right + 100)) / 34).attr('fill', (d) => d).attr('stroke', 'black');
+});
+        </script>
+        <script src="https://cdn.freecodecamp.org/testable-projects-fcc/v1/bundle.js"></script>
+    </body>
+</html>
