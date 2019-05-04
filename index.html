@@ -113,10 +113,6 @@ d3.json(url, function(data) {
     let varianceMin = d3.min(dataset, (d) => d['variance']);
     let varianceMax = d3.max(dataset, (d) => d['variance']);
     let e = (varianceMax - varianceMin) / (colors.length - 1);
-
-    console.log(data['baseTemperature'] + varianceMin - e/2);
-    console.log(data['baseTemperature'] + varianceMax + e/2);
-    console.log(e);
     
     let colorScale = d3.scaleLinear().domain([data['baseTemperature'] + varianceMin - e/2, data['baseTemperature'] + varianceMax + e/2]).range([margin.left, width - margin.right - 100]);
     let colorAxis = d3.axisBottom(colorScale).tickValues(function() {
